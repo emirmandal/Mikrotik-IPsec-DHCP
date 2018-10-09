@@ -1,0 +1,25 @@
+# original script https://forum.mikrotik.com/viewtopic.php?t=30787#p289052
+
+# this script is tested with MikroTik RouterOS 5.25 and 5.26
+# change the two variables below. dnsName should be set to the name to resolve, peerName should be the comment of the peer instance in "/ip ipsec peer"
+:local dnsName "host.dynamic.ip";
+:local peerName "dynamicdst";
+
+:local newIPsx ([:resolve $dnsName] . "/32");
+:local newIP ([:resolve $dnsName]);
+:log info "newIPsx IP is $newIPsx";
+:log info "newIP IP is $newIP";
+:local oldIP [/ip ipsec peer get [find comment="$peerName"] address];
+:log info "oldIP IP is $oldIP";
+:if ($newIPsx = $oldIP) do={
+  :log info "no IPsec peer changes necessary";
+} else={
+  :log info "Changing IPsec peer $peerName IP address to $newIPsx, flushing SAs";
+  /ip ipsec peer { set [find comment="$peerName"] address="$newIPsx" };
+# not working
+# /ip ipsec policy set [find comment="$peerName" ph2-state=no-phase2] sa-dst-address="$newIP";
+  /ip ipsec policy set [/ip ipsec policy find comment="$peerName"] sa-dst-address="$newIP";
+  /ip ipsec installed-sa flush;
+# following line is optional - need to describe prereq for this line
+# /ip firewall filter { set [find comment="$peerName"] src-address="$newIPsx" };
+}
